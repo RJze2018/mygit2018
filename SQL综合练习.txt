@@ -1,0 +1,510 @@
+create table student(
+sno varchar2(10) primary key,
+sname varchar2(20),
+sage number(2),
+ssex varchar2(5)
+);
+
+create table teacher(
+tno varchar2(10) primary key,
+tname varchar2(20)
+);
+
+create table course(
+cno varchar2(10),
+cname varchar2(20),
+tno varchar2(20),
+constraint pk_course primary key (cno,tno)
+);
+
+create table sc(
+sno varchar2(10),
+cno varchar2(10),
+score number(4,2),
+constraint pk_sc primary key (sno,cno)
+);
+
+
+insert into student values ('s1','吴一',21,'女');
+insert into student values ('s2','周二',23,'女');
+insert into student values ('s3','张三',23,'男');
+insert into student values ('s4','李四',23,'男');
+insert into student values ('s5','王五',25,'男');
+insert into student values ('s6','赵六',20,'女');
+insert into student values ('s7','钱七',20,'女');
+insert into student values ('s8','孙八',21,'男');
+insert into student values ('s9','刘九',21,'男');
+insert into student values ('s10','郑十',22,'女');
+commit;
+
+
+insert into teacher values ('t1', '赵老师');
+insert into teacher values ('t2', '钱老师');
+insert into teacher values ('t3', '孙老师');
+insert into teacher values ('t4', '李老师');
+commit;
+
+insert into course values ('c1','Java','t1');
+insert into course values ('c2','MySQL','t1');
+insert into course values ('c3','Oracle','t1');
+insert into course values ('c4','HTML','t2');
+insert into course values ('c5','Javascript','t2');
+insert into course values ('c6','JSP','t3');
+insert into course values ('c7','SSH','t3');
+insert into course values ('c8','SSM','t3');
+insert into course values ('c9','Android','t4');
+insert into course values ('c10','IOS','t4');
+
+commit;
+
+insert into sc values ('s1','c1',78);
+insert into sc values ('s2','c1',80);
+insert into sc values ('s3','c1',81);
+insert into sc values ('s4','c1',60);
+insert into sc values ('s1','c2',82);
+insert into sc values ('s2','c2',72);
+insert into sc values ('s3','c2',81);
+insert into sc values ('s2','c3',55);
+insert into sc values ('s3','c3',65);
+insert into sc values ('s4','c3',62);
+
+commit;
+ 
+ 
+1、查询考c001课程的成绩比考c002课程成绩高的所有学生的学号和姓名
+
+	select t.sno,sname from student,
+	 (select sc1.sno,sc1.score score1,sc2.score score2 from sc sc1,sc sc2  
+		where sc1.sno=sc2.sno and sc1.cno='c1' and sc2.cno='c2' ) as t
+	where t.sno=student.sno and score1>score2
+	
+
+2、查询平均成绩大于60分的同学的学号和平均成绩
+
+	select sno,avg(score) avgscore from sc
+		group by sno
+			having avgscore>60
+
+3、查询所有同学的学号、姓名、选课数、总成绩
+
+	select student.sno,sname,num,sumscore from student LEFT JOIN
+		(select sno,count(1) num,sum(score) sumscore from sc 
+		group by sno) as t ON student.sno=t.sno
+
+4、查询学过孙老师的课的同学的学号和姓名
+
+	select sc.sno,sname from sc,student,
+		(select cno,course.tno,tname from course ,teacher
+		where course.tno=teacher.tno and tname='孙老师') as t
+	where sc.cno=t.cno and student.sno=sc.sno
+
+5、查询没学过孙老师的课的同学的学号和姓名
+
+	select distinct sc.sno,sname from sc,student,
+		(select cno,course.tno,tname from course ,teacher
+		where course.tno=teacher.tno and tname!='孙老师') as t
+	where sc.cno=t.cno and student.sno=sc.sno
+
+6、查询同时学过c1和c2课程的同学的学号和姓名
+
+	 select t.sno,sname from student,sc,
+		(select sno from sc where cno='c1') as t
+	 where student.sno=t.sno and sc.sno=student.sno and sc.cno='c2'	
+
+7、查询考c2课程的成绩比考c1课程低的所有同学的学号和姓名
+
+	select t.sno,sname from student,
+		(select sc1.sno,sc1.score score1,sc2.score score2 from sc sc1,sc sc2  
+		where sc1.sno=sc2.sno and sc1.cno='c1' and sc2.cno='c2' ) as t
+	where t.sno=student.sno and score1>score2
+
+8、查询所有课程成绩不及格的同学的学号和姓名
+
+	select sc.sno,sname,MAX(score) maxscore from sc,student
+	where sc.sno=student.sno 
+	group by sc.sno 
+	having maxscore<60
+
+9、查询没有学全所有课的同学的学号和姓名
+
+	 select student.sno,sname from student,
+		(select sno,count(cno) count1 from sc group by sno) as s
+	where student.sno=s.sno and count1 not in 
+		(select count(cno) count2 from course )
+
+10、查询至少有一门与s1所学相同课程的学生的学号和姓名
+
+	select distinct sc.sno,sname from student,sc
+	where sc.sno=student.sno and sc.cno in
+		(select cno from sc where sno='s1'	)
+
+11、把成绩表中赵老师所教的课的成绩都更改为此课程的平均成绩
+
+	update sc,
+		(select sc.cno,avg(score) avgscore from sc,
+			(select cno,tname from course,teacher
+			where course.tno=teacher.tno and tname='赵老师') as t
+		where sc.cno=t.cno 
+		group by sc.cno) as s
+	set score=avgscore  
+	where sc.cno=s.cno 
+
+12、查询和学生s1所学课程完全相同的其他同学的学号和姓名
+
+	select sc.sno,sname from sc ,student
+	where cno in (select cno from sc where sno='s1') and sc.sno=student.sno and sc.sno!='s1'
+	group by sno
+	having count(*)=2
+
+13、删除学习了吴老师课的选课记录===========================================
+									多行删除
+								============================================
+
+	delete from sc
+	where cno in (
+		select cno from//多提取一次就可以了
+			(select sc.cno from sc join course on sc.cno=course.cno
+				join teacher on course.tno=teacher.tno
+			where tname='钱老师') as t
+	)
+	==============================================================================================================
+	
+	更新：如下回答，MySQL不允许在子查询中使用要删除的表。
+
+	最佳解决方案
+	您不能指定删除的目标表。
+
+	1.解决方法====
+
+	create table term_hierarchy_backup (tid int(10)); <- check data type
+	 
+	insert into term_hierarchy_backup 
+	SELECT DISTINCT(th1.tid)
+	FROM term_hierarchy AS th1
+	INNER JOIN term_hierarchy AS th2 ON (th1.tid = th2.tid AND th2.parent != 1015)
+	WHERE th1.parent = 1015;
+	 
+	DELETE FROM term_hierarchy AS th
+	WHERE th.parent = 1015 AND th.tid IN (select tid from term_hierarchy_backup);
+	
+	2.次佳解决方案====
+	对于那些在使用子查询时想要删除这个问题的人来说，我给你这个例子说明了MySQL的优势(即使有些人似乎认为不能完成)：
+
+	DELETE e.*
+	FROM tableE e
+	WHERE id IN (SELECT id
+				 FROM tableE
+				 WHERE arg = 1 AND foo = 'bar');
+	会给你一个错误：
+
+	ERROR 1093 (HY000): You can't specify target table 'e' for update in FROM clause
+	但是这个查询：
+
+	DELETE e.*
+	FROM tableE e
+	WHERE id IN (SELECT id
+				 FROM (SELECT id
+					   FROM tableE
+					   WHERE arg = 1 AND foo = 'bar') x);
+	将工作很好：
+
+	将子查询包含在一个附加的子查询(这里叫做x)中，MySQL将会很高兴地做你所要求的。
+
+	3.第三种解决方案====
+	DELETE关键字后应该包含别名：
+
+	DELETE th
+	FROM term_hierarchy AS th
+	WHERE th.parent = 1015 AND th.tid IN 
+	(
+		SELECT DISTINCT(th1.tid)
+		FROM term_hierarchy AS th1
+		INNER JOIN term_hierarchy AS th2 ON (th1.tid = th2.tid AND th2.parent != 1015)
+		WHERE th1.parent = 1015
+	);
+	4.第四种方案====
+	您需要在delete语句中再次引用别名，如：
+
+	DELETE th FROM term_hierarchy AS th
+	....
+	As outlined here in MySQL docs.
+
+	5.第五种方案====
+	我以一种略微不同的方式接近这个，对我来说是有效的;
+
+	我需要从引用conditions表的表中删除secure_links，其中不再有任何条件行。一个家务脚本基本上这给了我错误 – 您不能指定删除的目标表。
+
+	所以在这里寻找灵感，我想出了下面的查询，它的工作正常。这是因为它创建了一个用作DELETE参考的临时表sl1。
+
+	DELETE FROM `secure_links` WHERE `secure_links`.`link_id` IN 
+				(
+				SELECT
+					`sl1`.`link_id` 
+				FROM 
+					(
+					SELECT 
+	 
+						`sl2`.`link_id` 
+	 
+					FROM 
+						`secure_links` AS `sl2` 
+						LEFT JOIN `conditions` ON `conditions`.`job` = `sl2`.`job` 
+	 
+					WHERE 
+	 
+						`sl2`.`action` = 'something' AND 
+						`conditions`.`ref` IS NULL 
+					) AS `sl1`
+
+	
+	
+	
+	===============================================================================================================
+
+14、向SC表中插入一些记录，这些记录要求符合以下条件：没有上过c2课程的同学学号、c2课程的平均成绩=========================
+																									多行插入
+	//创建与之对应的表，然后插入												==============================
+	//先连接表，然后修改
+	//
+
+	insert into sc 
+	select sno,cno,avgscore from student ,
+		(select cno,avg(score) avgscore from sc where cno='c2') as t
+	where sno not in (select sno from sc where cno='c2')
+
+15、查询各科成绩最高和最低的分：显示格式：课程ID，最高分，最低分
+
+	select cno,max(score),min(score) from sc group by cno
+
+16、按各科平均成绩从低到高和及格率的百分数从高到低顺序
+
+	select course.*, ifnull(avg(score),0),ifnull(count_pass/count(score),0) as score FROM
+	course Left Join sc on course.cno=sc.cno
+	LEFT JOIN
+	(select cno,count(score) count_pass  from sc where score>60 group by cno ) as t On sc.cno=t.cno 
+	group by course.cno 
+	Order by avg(score) ,score desc;
+
+17、查询不同老师所教不同课程平均分从高到低显示==============================
+													难点2
+											=====================================
+
+	select course.tno,tname,sc.cno,avg(score) avgscore 
+	from course join teacher on course.tno=teacher.tno
+	join sc on sc.cno=course.cno
+	group by cno
+	order by tname,avgscore desc
+
+18、统计列印各科成绩,各分数段人数:课程ID,课程名称,[100-85],[85-70],[70-60],[ <60]
+
+	select course.cno,cname,count1 '[100-85]',count2 '[85-70]',count3 '[70-60]',count4 '[ <60]' from course 
+	left join 
+	(select cno,count(sno) as count1 from sc 
+	where score>85 and score<=100
+	group by cno) as a on course.cno=a.cno
+	left join 
+	(select cno,count(sno) as count2 from sc
+	where score>70 and score<=85
+	group by cno) as b on course.cno=b.cno
+	left join
+	(select cno,count(sno) as count3 from sc
+	where score>60 and score<=70
+	group by cno) as c on course.cno=c.cno
+	left join
+	(select cno,count(sno) as count4 from sc
+	where score<60
+	group by cno) as d on course.cno=d.cno
+
+19、查询各科成绩前三名的记录====================================
+										难点1。。。
+							====================================
+	--方法一
+
+	--将每科前两名学生的ID取出
+
+	/*
+
+	这是个自连接问题，可以这样想，就是把studentachievement表看成两个表，A和B，
+
+	A取的是B表中筛选出来的ID，而B表中筛选出来的ID则要靠A中的courseID来筛选，
+
+	即A表里选出来的是和B表courseID相同的，但在B表中占前两项的值。
+
+	*/
+
+	select a.* from sc as a 
+	left join sc as b on a.cno=b.cno and b.score>=a.score
+	group by a.sno,a.cno
+	having count(1)<=3
+	order by a.cno,a.score desc;
+
+	--方法二
+
+	--以科目，按成绩给记录编号，然后取出编号<=2的，就是每科前两名,课程号一样，取成绩高的2个
+
+	SELECT * FROM sc t1 WHERE
+	(
+	SELECT count(1) FROM sc t2 WHERE
+	t1.cno=t2.cno AND t2.score>=t1.score
+	)<=3
+	ORDER BY t1.cno,t1.score DESC;
+
+20、查询每门课程被选修的学生人数
+
+	select course.cno,count(sno) 
+	from sc RIGHT JOIN course ON sc.cno=course.cno
+	group by course.cno
+
+21、查询出只选修了一门课程的全部学生的学号和姓名
+
+	select student.sno,sname,count(cno) count1 from sc,student
+	where student.sno=sc.sno 
+	group by student.sno
+	having count1=1
+
+22、查询男生人数和女生人数
+
+	select ssex,count(distinct sno) from student 
+	group by ssex
+
+23、查询同名的学生名单，并统计同名人数
+
+	select t.*,count(distinct t.sno) from student t join student s on t.sname=s.sname
+	where s.sno!=t.sno
+	group by t.sname 
+
+24、1981年出生的学生名单(Student表中的Sage列的类型是number)
+
+	select * from student where sage=(year (NOW())-1981)
+
+25、查询每门课程的平均成绩，结果按平均成绩升序排列，平均成绩相同时，按课程号降序排列
+
+	select course.cno,avg(score) 
+	from course left join sc on sc.cno=course.cno 
+	group by course.cno
+	order by score,cno desc
+
+26、查询平均成绩大于85的所有学生的学号、姓名和平均成绩
+
+	select sc.sno,sname,avg(score) avgscore from sc,student
+	where sc.sno=student.sno
+	group by sc.sno
+	having avgscore>85
+
+27、查询课程名为Oracle，且分数低于60的学生姓名和分数
+
+	select sname,score from sc,student,course
+	where sc.cno=course.cno and sc.sno=student.sno
+	and score<60 and cname='Oracle'
+
+28、查询所有学生的选课情况
+
+	select student.sno,sname,sc.cno,cname 
+	from student Left join sc on student.sno=sc.sno
+	left JOIN course on sc.cno=course.cno
+
+29、查询任何一门课程成绩在70 分以上的姓名、课程名称和分数
+
+	select sname,cname,score from sc,student,course,
+		(select sc.sno,min(score) minscore from sc
+		group by sc.sno having minscore>70) as t
+	where sc.cno=course.cno and sc.sno=student.sno and sc.sno=t.sno
+
+30、查询不及格的课程，并按课程号从大到小排列
+
+	select sc.* from sc where score<60 order by cno desc
+
+31、查询课程编号为c1 且课程成绩在80分以上的学生的学号和姓名
+
+	select sc.sno,sname,score from sc,student
+	where sc.sno=student.sno and score>80 and cno='c1'
+
+32、求选了课程的学生人数
+
+	select count(distinct sno) from sc where cno is not null
+
+33、查询选修“谌燕”老师所授课程的学生中，成绩最高的学生姓名及其成绩
+
+	select sname,max(score) from sc,student,
+		(select cno
+		from course,teacher
+		where course.tno=teacher.tno and tname='谌燕') as t
+	where sc.cno=t.cno and student.sno=sc.sno
+	group by sc.cno
+
+34、查询各个课程及相应的选修人数
+
+	select course.*,count(distinct sno) 
+	from course LEFT JOIN sc on course.cno=sc.cno
+	group by course.cno
+
+35、查询不同课程成绩相同的学生的学号、课程号、学生成绩
+
+	select s.* from sc s join sc t on s.score=t.score
+	where s.cno!=t.cno and s.sno !=t.sno
+
+36、查询每门功课成绩最好的前两名
+
+	方法一：连接（含并列）
+	select t.* from sc t join sc s 
+		on t.cno=s.cno and t.score<=s.score
+	group by t.sno,t.cno having COUNT(DISTINCT t.score)<=2
+	order by t.cno,t.score desc
+	
+	方法二：子查询（含并列）
+	select t.* from sc t
+	where (
+		select count(distinct score) from sc s
+		where s.cno=t.cno and t.score<=s.score
+		group by s.cno
+		)<=2
+	order by t.cno,t.score desc
+
+37、统计每门课程的学生选修人数（超过10人的课程才统计）。要求输出课程号和选修人数，查询结果按人数降序排列，若人数相同，按课程号升序排列
+
+	select cno,count(cno) number from sc 
+	group by cno having number>10
+	order by number desc,cno
+
+38、检索至少选修两门课程的学生学号
+
+	select sno,count(cno) count from sc
+	group by sno
+	having count>2
+
+39、查询全部学生都选修的课程的课程号和课程名
+
+	select sc.cno,cname from sc ,course
+	where sc.cno=course.cno
+	group by sc.cno having count(sno)=(select count(sno) sum_student from student)
+
+40、查询没学过李老师讲授的任一门课程的学生姓名
+
+	select distinct sname from student left join sc on sc.sno=student.sno 
+	where sc.cno not in
+		(select cno from course ,teacher
+		where course.tno=teacher.tno and tname='李老师') 
+	or sc.sno is null
+
+41、查询两门以上不及格课程的同学的学号及其平均成绩
+
+	select sc.sno ,avg(score) from sc,
+		(select sno,count(1) count1 from sc
+		where score<60
+		group by sno
+		having count1>2) as t
+	where sc.sno=t.sno
+	group by sc.sno
+
+42、检索c4课程分数小于60，按分数降序排列的同学学号
+
+	select sno from sc
+	where cno='c4' and score<60
+	order by score desc
+
+43、删除s2同学的c1课程的成绩
+
+	delete from sc where sc.sno='s2' and sc.cno='c1'
+ 
+ 
+
